@@ -1,0 +1,67 @@
+#include <SoftwareSerial.h>
+
+#define JOY_SERVO_X A1
+#define JOY_SERVO_Y A0
+#define JOY_MOTOR_X A3
+#define JOY_MOTOR_Y A2
+#define BUTTON_PIN 4
+
+#define TX_PIN 2
+#define RX_PIN 3
+
+SoftwareSerial hc12(RX_PIN, TX_PIN);
+
+#define THRESH_LOW 300
+#define THRESH_HIGH 700
+
+String lastCommand = "";
+
+void setup() {
+  Serial.begin(9600);
+  hc12.begin(9600);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  Serial.println("Master: 2 Joysticks + Button Ready");
+}
+
+void loop() {
+  // Button sends special servo command
+  if (digitalRead(BUTTON_PIN) == LOW) {
+    if (lastCommand != "BTN") {
+      hc12.println("BTN");
+      Serial.println("Sent: BTN");
+      lastCommand = "BTN";
+    }
+    delay(100); // Debounce and reduce command rate
+    return;
+  }
+
+  // Joystick readings
+  int sX = analogRead(JOY_SERVO_X);
+  int sY = analogRead(JOY_SERVO_Y);
+  int mX = analogRead(JOY_MOTOR_X);
+  int mY = analogRead(JOY_MOTOR_Y);
+
+  // Servo direction
+  char servoDir = 'C';
+  if (sY > THRESH_HIGH) servoDir = 'F';
+  else if (sY < THRESH_LOW) servoDir = 'B';
+  else if (sX > THRESH_HIGH) servoDir = 'L';
+  else if (sX < THRESH_LOW) servoDir = 'R';
+
+  // Motor direction
+  String motorCmd = "STOP";
+  if (mY > THRESH_HIGH) motorCmd = "BACKWARD";
+  else if (mY < THRESH_LOW) motorCmd = "FORWARD";
+  else if (mX > THRESH_HIGH) motorCmd = "RIGHT";
+  else if (mX < THRESH_LOW) motorCmd = "LEFT";
+
+  String combo = String(servoDir) + " " + motorCmd;
+
+  if (combo != lastCommand) {
+    hc12.println(combo);
+    Serial.println("Sent: " + combo);
+    lastCommand = combo;
+  }
+
+  delay(100); // Consistent timing
+}
